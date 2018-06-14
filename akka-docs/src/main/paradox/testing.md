@@ -1,15 +1,8 @@
 # Testing Actor Systems
 
-As with any piece of software, automated tests are a very important part of the
-development cycle. The actor model presents a different view on how units of
-code are delimited and how they interact, which has an influence on how to
-perform tests.
-
-Akka comes with a dedicated module `akka-testkit` for supporting tests.
-
 ## Dependency
 
-To use Akka Testkit, add the module to your project:
+To use Akka Testkit, you must add the following dependency in your project:
 
 @@dependency[sbt,Maven,Gradle] {
   group="com.typesafe.akka"
@@ -18,10 +11,19 @@ To use Akka Testkit, add the module to your project:
   scope="test"
 }
 
+## Introduction
+
+As with any piece of software, automated tests are a very important part of the
+development cycle. The actor model presents a different view on how units of
+code are delimited and how they interact, which has an influence on how to
+perform tests.
+
+Akka comes with a dedicated module `akka-testkit` for supporting tests.
+
 ## Asynchronous Testing: `TestKit`
 
 Testkit allows you to test your actors in a controlled but realistic
-environment. The definition of the environment depends of course very much on
+environment. The definition of the environment depends very much on
 the problem at hand and the level at which you intend to test, ranging from
 simple checks to full system tests.
 
@@ -79,7 +81,7 @@ out, in which case they use the default value from configuration item
 `akka.test.single-expect-default` which itself defaults to 3 seconds (or they
 obey the innermost enclosing `Within` as detailed [below](#testkit-within)). The full signatures are:
 
-* @scala[`expectMsg[T](d: Duration, msg: T): T`]@java[`public <T> T expectMsgEquals(FiniteDuration max, T msg)`]
+* @scala[`expectMsg[T](d: Duration, msg: T): T`]@java[`public <T> T expectMsgEquals(Duration max, T msg)`]
    The given message object must be received within the specified time; the
 object will be returned.
 * @scala[`expectMsgPF[T](d: Duration)(pf: PartialFunction[Any, T]): T`]@java[`public <T> T expectMsgPF(Duration max, String hint, Function<Object, T> f)`]
@@ -89,7 +91,7 @@ the @scala[partial] function to the received message is returned. @scala[The dur
 be left unspecified (empty parentheses are required in this case) to use
 the deadline from the innermost enclosing [within](#testkit-within)
 block instead.]
-* @scala[`expectMsgClass[T](d: Duration, c: Class[T]): T`]@java[`public <T> T expectMsgClass(FiniteDuration max, Class<T> c)`]
+* @scala[`expectMsgClass[T](d: Duration, c: Class[T]): T`]@java[`public <T> T expectMsgClass(Duration max, Class<T> c)`]
    An object which is an instance of the given `Class` must be received
 within the allotted time frame; the object will be returned. Note that this
 does a conformance check; if you need the class to be equal, @scala[have a look at
@@ -109,12 +111,12 @@ method is approximately equivalent to
    An object must be received within the given time, and it must be equal (
 compared with @scala[`==`]@java[`equals()`]) to at least one of the passed reference objects; the
 received object will be returned.
-* @scala[`expectMsgAnyClassOf[T](d: Duration, obj: Class[_ <: T]*): T`]@java[`public <T> T expectMsgAnyClassOf(FiniteDuration max, Class<? extends T>... c)`]
+* @scala[`expectMsgAnyClassOf[T](d: Duration, obj: Class[_ <: T]*): T`]@java[`public <T> T expectMsgAnyClassOf(Duration max, Class<? extends T>... c)`]
    An object must be received within the given time, and it must be an
 instance of at least one of the supplied `Class` objects; the
 received object will be returned. Note that this does a conformance check,
 if you need the class to be equal you need to verify that afterwards.
-* @scala[`expectMsgAllOf[T](d: Duration, obj: T*): Seq[T]`]@java[`public List<Object> expectMsgAllOf(FiniteDuration max, Object... msg)`]
+* @scala[`expectMsgAllOf[T](d: Duration, obj: T*): Seq[T]`]@java[`public List<Object> expectMsgAllOf(Duration max, Object... msg)`]
    A number of objects matching the size of the supplied object array must be
 received within the given time, and for each of the given objects there
 must exist at least one among the received ones which equals (compared with
@@ -137,11 +139,11 @@ instance of this class. The full sequence of received objects is returned.
 
 @@@
 
-* @scala[`expectNoMsg(d: Duration)`]@java[`public void expectNoMsg(FiniteDuration max)`]
+* @scala[`expectNoMessage(d: Duration)`]@java[`public void expectNoMessage(Duration max)`]
    No message must be received within the given time. This also fails if a
 message has been received before calling this method which has not been
 removed from the queue using one of the other methods.
-* @scala[`receiveN(n: Int, d: Duration): Seq[AnyRef]`]@java[`List<Object> receiveN(int n, FiniteDuration max)`]
+* @scala[`receiveN(n: Int, d: Duration): Seq[AnyRef]`]@java[`List<Object> receiveN(int n, Duration max)`]
    `n` messages must be received within the given time; the received
 messages are returned.
 
@@ -270,11 +272,7 @@ checked external to the examination, which is facilitated by a new construct
 for managing time constraints:
 
 Scala
-:   ```scala
-within([min, ]max) {
-  ...
-}
-```
+:   @@snip [TestkitDocSpec.scala]($code$/scala/docs/testkit/TestkitDocSpec.scala) { #test-within }
 
 Java
 :   @@snip [TestKitDocTest.java]($code$/java/jdocs/testkit/TestKitDocTest.java) { #test-within }
@@ -287,13 +285,11 @@ you do not specify it, it is inherited from the innermost enclosing
 `within` block.
 
 It should be noted that if the last message-receiving assertion of the block is
-`expectNoMsg` or `receiveWhile`, the final check of the
+`expectNoMessage` or `receiveWhile`, the final check of the
 `within` is skipped in order to avoid false positives due to wake-up
 latencies. This means that while individual contained assertions still use the
 maximum time bound, the overall block may take arbitrarily longer in this case.
 
-Scala
-:   @@snip [TestkitDocSpec.scala]($code$/scala/docs/testkit/TestkitDocSpec.scala) { #test-within }
 
 @@@ note
 
@@ -332,7 +328,7 @@ Java
 ### Resolving Conflicts with Implicit ActorRef
 
 If you want the sender of messages inside your TestKit-based tests to be the `testActor`
-simply mix in `ImplicitSender` into your test.
+ mix in `ImplicitSender` into your test.
 
 @@snip [PlainWordSpec.scala]($code$/scala/docs/testkit/PlainWordSpec.scala) { #implicit-sender }
 
@@ -598,8 +594,8 @@ simplest example for this situation is an actor which sends a message to
 itself. In this case, processing cannot continue immediately as that would
 violate the actor model, so the invocation is queued and will be processed when
 the active invocation on that actor finishes its processing; thus, it will be
-processed on the calling thread, but simply after the actor finishes its
-previous work. In the other case, the invocation is simply processed
+processed on the calling thread, but after the actor finishes its
+previous work. In the other case, the invocation is processed
 immediately on the current thread. Futures scheduled via this dispatcher are
 also executed immediately.
 
@@ -945,7 +941,7 @@ dispatcher to `CallingThreadDispatcher.global` and it sets the
 
 If you want to test the actor behavior, including hotswapping, but without
 involving a dispatcher and without having the `TestActorRef` swallow
-any thrown exceptions, then there is another mode available for you: just use
+any thrown exceptions, then there is another mode available for you: use
 the `receive` method on `TestActorRef`, which will be forwarded to the
 underlying actor:
 
@@ -957,7 +953,7 @@ Java
 
 ### Use Cases
 
-You may of course mix and match both modi operandi of `TestActorRef` as
+You may mix and match both modi operandi of `TestActorRef` as
 suits your test needs:
 
  * one common use case is setting up the actor into a specific internal state

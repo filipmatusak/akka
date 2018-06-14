@@ -1,5 +1,17 @@
 # Mailboxes
 
+## Dependency
+
+To use Mailboxes, you must add the following dependency in your project:
+
+@@dependency[sbt,Maven,Gradle] {
+  group="com.typesafe.akka"
+  artifact="akka-actor_$scala.binary_version$"
+  version="$akka.version$"
+}
+
+## Introduction
+
 An Akka `Mailbox` holds the messages that are destined for an `Actor`.
 Normally each `Actor` has its own mailbox, but with for example a `BalancingPool`
 all routees will share a single mailbox instance.
@@ -63,7 +75,8 @@ then that names a configuration section describing the mailbox type to be
 used.
  2. If the actor’s `Props` contains a mailbox selection—i.e. `withMailbox`
 was called on it—then that names a configuration section describing the
-mailbox type to be used.
+mailbox type to be used (note that this needs to be an absolute config path, 
+for example `myapp.special-mailbox`, and is not nested inside the `akka` namespace).
  3. If the dispatcher’s configuration section contains a `mailbox-type` key
 the same section will be used to configure the mailbox type.
  4. If the actor requires a mailbox type as described above then the mapping for
@@ -203,7 +216,7 @@ Scala
 Java
 :   @@snip [DispatcherDocTest.java]($code$/java/jdocs/dispatcher/DispatcherDocTest.java) { #prio-dispatcher }
 
-It is also possible to configure a mailbox type directly like this:
+It is also possible to configure a mailbox type directly like this (this is a top-level configuration entry):
 
 Scala
 :   @@snip [DispatcherDocSpec.scala]($code$/scala/docs/dispatcher/DispatcherDocSpec.scala) { #prio-mailbox-config #mailbox-deployment-config }
@@ -269,7 +282,7 @@ Scala
 Java
 :   @@snip [MyUnboundedMailbox.java]($code$/java/jdocs/dispatcher/MyUnboundedMailbox.java) { #mailbox-implementation-example }
 
-And then you just specify the FQCN of your MailboxType as the value of the "mailbox-type" in the dispatcher
+And then you specify the FQCN of your MailboxType as the value of the "mailbox-type" in the dispatcher
 configuration, or the mailbox configuration.
 
 @@@ note

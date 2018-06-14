@@ -178,6 +178,7 @@ PR_TARGET_BRANCH=origin/example sbt validatePullRequest
 ```
 
 ## Binary compatibility
+
 Binary compatibility rules and guarantees are described in depth in the [Binary Compatibility Rules
 ](http://doc.akka.io/docs/akka/snapshot/common/binary-compatibility-rules.html) section of the documentation.
 
@@ -381,6 +382,32 @@ then when the feature is hardened, well documented and
 tested it becomes an officially supported Akka feature.
 
 [List of Akka features marked as may change](http://doc.akka.io/docs/akka/current/common/may-change.html)
+
+## Contributing new Akka Streams operators
+
+Documentation of Akka Streams operators is automatically enforced.
+If a method exists on Source / Sink / Flow, or any other class listed in `project/StreamOperatorsIndexGenerator.scala`,
+it must also have a corresponding documentation page under `akka-docs/src/main/paradox/streams/operators/...`.
+
+The pages structure is well-defined, and must be the same on all documentation pages, please refer to any neighbouring
+docs pages in there to see the pattern in action. In general though the page must consist of:
+
+- the title, including where the operator is defined (e.g. `ActorFlow.ask` or `Source.map`)
+- a short explanation of what this operator does, 1 sentence is optimal
+- an image explaining the operator more visually (whenever possible)
+- a link to the operators' "category" (these are listed in `akka-docs/src/main/paradox/categories`)
+- the method signature snippet (use the built in directives to generate it)
+- a longer explanation about the operator and it's exact semantics (when it pulls, cancels, signals elements)
+- at least one usage example
+
+Using this structure, the surrounding infrastructure will **generate the index pages**, so you do not need to maintain
+the index or category pages manually.
+
+### Adding new top-level objects/classes containing operators
+
+In case you are adding not only a new operator, but also a new class/object, you need to add it to the 
+`project/StreamOperatorsIndexGenerator.scala` so it can be included in the automatic docs generation and enforcing the 
+existence of those docs.
 
 # Supporting infrastructure
 

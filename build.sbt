@@ -37,7 +37,7 @@ lazy val aggregatedProjects: Seq[ProjectReference] = Seq(
   slf4j,
   stream, streamTestkit, streamTests, streamTestsTck,
   testkit,
-  actorTyped, actorTypedTests, typedTestkit,
+  actorTyped, actorTypedTests, actorTestkitTyped,
   persistenceTyped,
   clusterTyped, clusterShardingTyped,
   streamTyped
@@ -396,10 +396,12 @@ lazy val actorTyped = akkaModule("akka-actor-typed")
 lazy val persistenceTyped = akkaModule("akka-persistence-typed")
   .dependsOn(
     actorTyped,
-    persistence,
-    typedTestkit % "test->test",
-    actorTypedTests % "test->test"
+    persistence % "compile->compile;test->test",
+    persistenceQuery % "test",
+    actorTypedTests % "test->test",
+    actorTestkitTyped % "compile->compile;test->test"
   )
+  .settings(Dependencies.persistenceShared)
   .settings(AkkaBuild.mayChangeSettings)
   .settings(AutomaticModuleName.settings("akka.persistence.typed"))
   .disablePlugins(MimaPlugin)
@@ -413,33 +415,40 @@ lazy val clusterTyped = akkaModule("akka-cluster-typed")
     persistence % "test->test",
     persistenceTyped % "test->test",
     protobuf,
-    typedTestkit % "test->test",
-    actorTypedTests % "test->test"
+    actorTestkitTyped % "test->test",
+    actorTypedTests % "test->test",
+    remoteTests % "test->test"
   )
   .settings(AkkaBuild.mayChangeSettings)
   .settings(AutomaticModuleName.settings("akka.cluster.typed"))
   .disablePlugins(MimaPlugin)
+  .configs(MultiJvm)
+  .enablePlugins(MultiNodeScalaTest)
 
 lazy val clusterShardingTyped = akkaModule("akka-cluster-sharding-typed")
   .dependsOn(
-    clusterTyped,
+    clusterTyped % "compile->compile;test->test;multi-jvm->multi-jvm",
     persistenceTyped,
     clusterSharding,
-    typedTestkit % "test->test",
+    actorTestkitTyped % "test->test",
     actorTypedTests % "test->test",
-    persistenceTyped % "test->test"
+    persistenceTyped % "test->test",
+    remoteTests % "test->test"
   )
   .settings(AkkaBuild.mayChangeSettings)
   .settings(AutomaticModuleName.settings("akka.cluster.sharding.typed"))
   // To be able to import ContainerFormats.proto
   .settings(Protobuf.importPath := Some(baseDirectory.value / ".." / "akka-remote" / "src" / "main" / "protobuf" ))
   .disablePlugins(MimaPlugin)
+  .configs(MultiJvm)
+  .enablePlugins(MultiNodeScalaTest)
 
 lazy val streamTyped = akkaModule("akka-stream-typed")
   .dependsOn(
     actorTyped,
     stream,
-    typedTestkit % "test->test",
+    streamTestkit % "test->test",
+    actorTestkitTyped % "test->test",
     actorTypedTests % "test->test"
   )
   .settings(AkkaBuild.mayChangeSettings)
@@ -447,16 +456,16 @@ lazy val streamTyped = akkaModule("akka-stream-typed")
   .disablePlugins(MimaPlugin)
   .enablePlugins(ScaladocNoVerificationOfDiagrams)
 
-lazy val typedTestkit = akkaModule("akka-testkit-typed")
+lazy val actorTestkitTyped = akkaModule("akka-actor-testkit-typed")
   .dependsOn(actorTyped, testkit % "compile->compile;test->test")
-  .settings(AutomaticModuleName.settings("akka.testkit.typed"))
-  .settings(Dependencies.typedTestkit)
+  .settings(AutomaticModuleName.settings("akka.actor.testkit.typed"))
+  .settings(Dependencies.actorTestkitTyped)
   .disablePlugins(MimaPlugin)
 
 lazy val actorTypedTests = akkaModule("akka-actor-typed-tests")
   .dependsOn(
     actorTyped,
-    typedTestkit % "compile->compile;test->test"
+    actorTestkitTyped % "compile->compile;test->test"
   )
   .settings(AkkaBuild.mayChangeSettings)
   .disablePlugins(MimaPlugin)

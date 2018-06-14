@@ -2,7 +2,7 @@
 
 Materialize a `SinkQueue` that can be pulled to trigger demand through the sink.
 
-@ref[Sink stages](../index.md#sink-stages)
+@ref[Sink operators](../index.md#sink-operators)
 
 @@@div { .group-scala }
 
@@ -16,6 +16,9 @@ Materialize a `SinkQueue` that can be pulled to trigger demand through the sink.
 
 Materialize a `SinkQueue` that can be pulled to trigger demand through the sink. The queue contains
 a buffer in case stream emitting elements faster than queue pulling them.
+
+
+## Reactive Streams semantics
 
 
 @@@div { .callout }

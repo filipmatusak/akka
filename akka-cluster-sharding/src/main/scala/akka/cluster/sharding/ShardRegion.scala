@@ -323,9 +323,6 @@ object ShardRegion {
    */
   final case class StartEntityAck(entityId: EntityId, shardId: ShardRegion.ShardId) extends ClusterShardingSerializable
 
-  private def roleOption(role: String): Option[String] =
-    if (role == "") None else Option(role)
-
   /**
    * INTERNAL API. Sends stopMessage (e.g. `PoisonPill`) to the entities and when all of
    * them have terminated it replies with `ShardStopped`.
@@ -461,7 +458,7 @@ private[akka] class ShardRegion(
     }
   }
 
-  def receive = {
+  def receive: Receive = {
     case Terminated(ref)                         ⇒ receiveTerminated(ref)
     case ShardInitialized(shardId)               ⇒ initializeShard(shardId, sender())
     case evt: ClusterDomainEvent                 ⇒ receiveClusterEvent(evt)
@@ -676,10 +673,19 @@ private[akka] class ShardRegion(
 
   def register(): Unit = {
     coordinatorSelection.foreach(_ ! registrationMessage)
-    if (shardBuffers.nonEmpty && retryCount >= 5)
-      log.warning(
-        "Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages.",
-        coordinatorSelection, shardBuffers.totalSize)
+    if (shardBuffers.nonEmpty && retryCount >= 5) coordinatorSelection match {
+      case Some(actorSelection) ⇒
+        val coordinatorMessage =
+          if (cluster.state.unreachable(membersByAge.head)) s"Coordinator [${membersByAge.head}] is unreachable."
+          else s"Coordinator [${membersByAge.head}] is reachable."
+        log.warning(
+          "Trying to register to coordinator at [{}], but no acknowledgement. Total [{}] buffered messages. [{}]",
+          actorSelection, shardBuffers.totalSize, coordinatorMessage
+        )
+      case None ⇒ log.warning(
+        "No coordinator found to register. Probably, no seed-nodes configured and manual cluster join not performed? Total [{}] buffered messages.",
+        shardBuffers.totalSize)
+    }
   }
 
   def registrationMessage: Any =
@@ -759,7 +765,7 @@ private[akka] class ShardRegion(
               getShard(shardId)
           case None ⇒
             if (!shardBuffers.contains(shardId)) {
-              log.debug("Request shard [{}] home", shardId)
+              log.debug("Request shard [{}] home. Coordinator [{}]", shardId, coordinator)
               coordinator.foreach(_ ! GetShardHome(shardId))
             }
             val buf = shardBuffers.getOrEmpty(shardId)
@@ -788,7 +794,7 @@ private[akka] class ShardRegion(
             context.system.deadLetters ! msg
           case None ⇒
             if (!shardBuffers.contains(shardId)) {
-              log.debug("Request shard [{}] home", shardId)
+              log.debug("Request shard [{}] home. Coordinator [{}]", shardId, coordinator)
               coordinator.foreach(_ ! GetShardHome(shardId))
             }
             bufferMessage(shardId, msg, snd)

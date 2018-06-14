@@ -2,7 +2,7 @@
 
 Apply a partial function to each incoming element, if the partial function is defined for a value the returned value is passed downstream.
 
-@ref[Simple processing stages](../index.md#simple-processing-stages)
+@ref[Simple operators](../index.md#simple-operators)
 
 @@@div { .group-scala }
 
@@ -15,7 +15,7 @@ Apply a partial function to each incoming element, if the partial function is de
 ## Description
 
 Apply a partial function to each incoming element, if the partial function is defined for a value the returned
-value is passed downstream. Can often replace `filter` followed by `map` to achieve the same in one single stage.
+value is passed downstream. Can often replace `filter` followed by `map` to achieve the same in one single operators.
 
 
 @@@div { .callout }

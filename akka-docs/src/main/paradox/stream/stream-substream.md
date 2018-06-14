@@ -1,14 +1,26 @@
 # Substreams
 
+## Dependency
+
+To use Akka Streams, add the module to your project:
+
+@@dependency[sbt,Maven,Gradle] {
+  group="com.typesafe.akka"
+  artifact="akka-stream_$scala.binary_version$"
+  version="$akka.version$"
+}
+
+## Introduction
+
 Substreams are represented as `SubSource` or `SubFlow` instances, on which you can multiplex a single `Source` or `Flow`
 into a stream of streams.
 
 SubFlows cannot contribute to the super-flow’s materialized value since they are materialized later,
 during the runtime of the flow graph processing.
 
-Stages that create substreams are listed on @ref[Nesting and flattening stages](operators/index.md#nesting-and-flattening-stages)
+operators that create substreams are listed on @ref[Nesting and flattening operators](operators/index.md#nesting-and-flattening-operators)
 
-## Nesting stages
+## Nesting operators
 
 ### groupBy
 
@@ -26,8 +38,10 @@ This operation splits the incoming stream into separate output
 streams, one for each element key. The key is computed for each element
 using the given function, which is `f` in the above diagram. When a new key is encountered for the first time
 a new substream is opened and subsequently fed with all elements belonging to that key.
+If `allowClosedSubstreamRecreation` is set to `true` a substream belonging to a specific key
+will be recreated if it was closed before, otherwise elements belonging to that key will be dropped.
 
-If you add a `Sink` or `Flow` right after the `groupBy` stage,
+If you add a `Sink` or `Flow` right after the `groupBy` operator,
 all transformations are applied to all encountered substreams in the same fashion.
 So, if you add the following `Sink`, that is added to each of the substreams as in the below diagram.
 
@@ -105,7 +119,7 @@ This prints out the following output.
 
 ![stream-substream-splitWhen-splitAfter.png](../../images/stream-substream-splitWhen-splitAfter.png)
 
-## Flattening stages
+## Flattening operators
 
 ### flatMapConcat
 

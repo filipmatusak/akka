@@ -1,5 +1,17 @@
 # Working with Graphs
 
+## Dependency
+
+To use Akka Streams, add the module to your project:
+
+@@dependency[sbt,Maven,Gradle] {
+  group="com.typesafe.akka"
+  artifact="akka-stream_$scala.binary_version$"
+  version="$akka.version$"
+}
+
+## Introduction
+
 In Akka Streams computation graphs are not expressed using a fluent DSL like linear computations are, instead they are
 written in a more graph-resembling DSL which aims to make translating graph drawings (e.g. from notes taken
 from design discussions, or illustrations in protocol specifications) to and from code simpler. In this section we'll
@@ -152,18 +164,18 @@ A partial graph also verifies that all ports are either connected or part of the
 <a id="constructing-sources-sinks-flows-from-partial-graphs"></a>
 ## Constructing Sources, Sinks and Flows from Partial Graphs
 
-Instead of treating a @scala[partial graph]@java[`Graph`] as simply a collection of flows and junctions which may not yet all be
+Instead of treating a @scala[partial graph]@java[`Graph`] as a collection of flows and junctions which may not yet all be
 connected it is sometimes useful to expose such a complex graph as a simpler structure,
 such as a `Source`, `Sink` or `Flow`.
 
-In fact, these concepts can be easily expressed as special cases of a partially connected graph:
+In fact, these concepts can be expressed as special cases of a partially connected graph:
 
  * `Source` is a partial graph with *exactly one* output, that is it returns a `SourceShape`.
  * `Sink` is a partial graph with *exactly one* input, that is it returns a `SinkShape`.
  * `Flow` is a partial graph with *exactly one* input and *exactly one* output, that is it returns a `FlowShape`.
 
-Being able to hide complex graphs inside of simple elements such as Sink / Source / Flow enables you to easily create one
-complex element and from there on treat it as simple compound stage for linear computations.
+Being able to hide complex graphs inside of simple elements such as Sink / Source / Flow enables you to create one
+complex element and from there on treat it as simple compound operator for linear computations.
 
 In order to create a Source from a graph the method `Source.fromGraph` is used, to use it we must have a
 @scala[`Graph[SourceShape, T]`]@java[`Graph` with a `SourceShape`]. This is constructed using
@@ -246,7 +258,7 @@ of the same type,
  * `FanInShape1`, `FanInShape2`, ..., `FanOutShape1`, `FanOutShape2`, ... for junctions
 with multiple input (or output) ports of different types.
 
-Since our shape has two input ports and one output port, we can just use the `FanInShape` DSL to define
+Since our shape has two input ports and one output port, we can use the `FanInShape` DSL to define
 our custom shape:
 
 Scala
@@ -279,10 +291,10 @@ Scala
 ## Bidirectional Flows
 
 A graph topology that is often useful is that of two flows going in opposite
-directions. Take for example a codec stage that serializes outgoing messages
-and deserializes incoming octet streams. Another such stage could add a framing
+directions. Take for example a codec operator that serializes outgoing messages
+and deserializes incoming octet streams. Another such operator could add a framing
 protocol that attaches a length header to outgoing data and parses incoming
-frames back into the original octet stream chunks. These two stages are meant
+frames back into the original octet stream chunks. These two operators are meant
 to be composed, applying one atop the other as part of a protocol stack. For
 this purpose exists the special type `BidiFlow` which is a graph that
 has exactly two open inlets and two open outlets. The corresponding shape is
@@ -313,12 +325,12 @@ Java
 :   @@snip [BidiFlowDocTest.java]($code$/java/jdocs/stream/BidiFlowDocTest.java) { #codec-impl }
 
 
-In this way you could easily integrate any other serialization library that
+In this way you can integrate any other serialization library that
 turns an object into a sequence of bytes.
 
-The other stage that we talked about is a little more involved since reversing
+The other operator that we talked about is a little more involved since reversing
 a framing protocol means that any received chunk of bytes may correspond to
-zero or more messages. This is best implemented using a `GraphStage`
+zero or more messages. This is best implemented using @ref[`GraphStage`](stream-customize.md)
 (see also @ref[Custom processing with GraphStage](stream-customize.md#graphstage)).
 
 Scala
@@ -340,7 +352,7 @@ Java
 This example demonstrates how `BidiFlow` subgraphs can be hooked
 together and also turned around with the @scala[`.reversed`]@java[`.reversed()`] method. The test
 simulates both parties of a network communication protocol without actually
-having to open a network connection—the flows can just be connected directly.
+having to open a network connection—the flows can be connected directly.
 
 <a id="graph-matvalue"></a>
 ## Accessing the materialized value inside the Graph
@@ -428,8 +440,8 @@ of initial elements from `source`.
 @@@ note
 
 What we see here is that in certain cases we need to choose between boundedness and liveness. Our first example would
-not deadlock if there would be an infinite buffer in the loop, or vice versa, if the elements in the cycle would
-be balanced (as many elements are removed as many are injected) then there would be no deadlock.
+not deadlock if there were an infinite buffer in the loop, or vice versa, if the elements in the cycle were 
+balanced (as many elements are removed as many are injected) then there would be no deadlock.
 
 @@@
 

@@ -1,5 +1,15 @@
 # Futures
 
+## Dependency
+
+This section explains using plain Scala Futures but focuses on their interop with Akka Actors, so to follow those examples you will want to depend on:
+
+@@dependency[sbt,Maven,Gradle] {
+  group="com.typesafe.akka"
+  artifact="akka-actor_$scala.binary_version$"
+  version="$akka.version$"
+}
+
 ## Introduction
 
 In the Scala Standard Library, a [Future](http://en.wikipedia.org/wiki/Futures_and_promises) is a data structure
@@ -187,7 +197,7 @@ If you need to do conditional propagation, you can use `filter`:
 
 ### For Comprehensions
 
-Since `Future` has a `map`, `filter` and `flatMap` method it can be easily used in a 'for comprehension':
+Since `Future` has a `map`, `filter` and `flatMap` method it can be used in a 'for comprehension':
 
 @@snip [FutureDocSpec.scala]($code$/scala/docs/future/FutureDocSpec.scala) { #for-comprehension }
 
@@ -391,7 +401,7 @@ Java
 
 ## Retry
 
-`akka.pattern.retry` will retry a @scala[`Future` class]@java[`CompletionStage` class] some number of times with a delay between each attempt.
+@scala[`akka.pattern.retry`]@java[`akka.pattern.PatternsCS.retry`] will retry a @scala[`Future` class]@java[`CompletionStage` class] some number of times with a delay between each attempt.
 
 Scala
 :   @@snip [FutureDocSpec.scala]($code$/scala/docs/future/FutureDocSpec.scala) { #retry }

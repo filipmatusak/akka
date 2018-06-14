@@ -7,12 +7,27 @@ package akka.actor.typed.receptionist
 import akka.actor.typed.{ ActorRef, ActorSystem, Extension, ExtensionId }
 import akka.actor.typed.internal.receptionist._
 import akka.annotation.DoNotInherit
-
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
-class Receptionist(system: ActorSystem[_]) extends Extension {
+import akka.actor.typed.ExtensionSetup
+import akka.annotation.InternalApi
+
+/**
+ * This class is not intended for user extension other than for test purposes (e.g.
+ * stub implementation). More methods may be added in the future and that may break
+ * such implementations.
+ */
+@DoNotInherit
+abstract class Receptionist extends Extension {
+  def ref: ActorRef[Receptionist.Command]
+}
+
+/**
+ * INTERNAL API
+ */
+@InternalApi private[akka] class ReceptionistImpl(system: ActorSystem[_]) extends Receptionist {
 
   private def hasCluster: Boolean = {
     // FIXME: replace with better indicator that cluster is enabled
@@ -20,7 +35,7 @@ class Receptionist(system: ActorSystem[_]) extends Extension {
     provider == "akka.cluster.ClusterActorRefProvider"
   }
 
-  val ref: ActorRef[Receptionist.Command] = {
+  override val ref: ActorRef[Receptionist.Command] = {
     val provider: ReceptionistBehaviorProvider =
       if (hasCluster) {
         system.dynamicAccess
@@ -98,7 +113,7 @@ abstract class ServiceKey[T] extends AbstractServiceKey { key ⇒
  * The receptionist is easiest accessed through the system: [[ActorSystem.receptionist]]
  */
 object Receptionist extends ExtensionId[Receptionist] {
-  def createExtension(system: ActorSystem[_]): Receptionist = new Receptionist(system)
+  def createExtension(system: ActorSystem[_]): Receptionist = new ReceptionistImpl(system)
   def get(system: ActorSystem[_]): Receptionist = apply(system)
 
   /**
@@ -274,3 +289,19 @@ object Receptionist extends ExtensionId[Receptionist] {
     Listing(key, Set[ActorRef[T]](serviceInstances.asScala.toSeq: _*))
 
 }
+
+object ReceptionistSetup {
+  def apply[T <: Extension](createExtension: ActorSystem[_] ⇒ Receptionist): ReceptionistSetup =
+    new ReceptionistSetup(new java.util.function.Function[ActorSystem[_], Receptionist] {
+      override def apply(sys: ActorSystem[_]): Receptionist = createExtension(sys)
+    }) // TODO can be simplified when compiled only with Scala >= 2.12
+
+}
+
+/**
+ * Can be used in [[akka.actor.setup.ActorSystemSetup]] when starting the [[ActorSystem]]
+ * to replace the default implementation of the [[Receptionist]] extension. Intended
+ * for tests that need to replace extension with stub/mock implementations.
+ */
+final class ReceptionistSetup(createExtension: java.util.function.Function[ActorSystem[_], Receptionist])
+  extends ExtensionSetup[Receptionist](Receptionist, createExtension)

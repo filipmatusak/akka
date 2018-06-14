@@ -4,6 +4,7 @@
 
 package akka.stream.impl.fusing
 
+import java.util.Collections
 import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
@@ -214,7 +215,7 @@ import scala.collection.JavaConverters._
 /**
  * INTERNAL API
  */
-@InternalApi private[akka] final class GroupBy[T, K](val maxSubstreams: Int, val keyFor: T ⇒ K) extends GraphStage[FlowShape[T, Source[T, NotUsed]]] {
+@InternalApi private[akka] final class GroupBy[T, K](val maxSubstreams: Int, val keyFor: T ⇒ K, val allowClosedSubstreamRecreation: Boolean = false) extends GraphStage[FlowShape[T, Source[T, NotUsed]]] {
   val in: Inlet[T] = Inlet("GroupBy.in")
   val out: Outlet[Source[T, NotUsed]] = Outlet("GroupBy.out")
   override val shape: FlowShape[T, Source[T, NotUsed]] = FlowShape(in, out)
@@ -222,9 +223,10 @@ import scala.collection.JavaConverters._
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = new TimerGraphStageLogic(shape) with OutHandler with InHandler {
     parent ⇒
+
     lazy val decider = inheritedAttributes.mandatoryAttribute[SupervisionStrategy].decider
     private val activeSubstreamsMap = new java.util.HashMap[Any, SubstreamSource]()
-    private val closedSubstreams = new java.util.HashSet[Any]()
+    private val closedSubstreams = if (allowClosedSubstreamRecreation) Collections.unmodifiableSet(Collections.emptySet[Any]) else new java.util.HashSet[Any]()
     private var timeout: FiniteDuration = _
     private var substreamWaitingToBePushed: Option[SubstreamSource] = None
     private var nextElementKey: K = null.asInstanceOf[K]
@@ -232,6 +234,8 @@ import scala.collection.JavaConverters._
     private var _nextId = 0
     private val substreamsJustStared = new java.util.HashSet[Any]()
     private var firstPushCounter: Int = 0
+
+    private val tooManySubstreamsOpenException = new TooManySubstreamsOpenException
 
     private def nextId(): Long = { _nextId += 1; _nextId }
 
@@ -303,7 +307,7 @@ import scala.collection.JavaConverters._
         }
       } else {
         if (activeSubstreamsMap.size == maxSubstreams)
-          fail(new IllegalStateException(s"Cannot open substream for key '$key': too many substreams open"))
+          throw tooManySubstreamsOpenException
         else if (closedSubstreams.contains(key) && !hasBeenPulled(in))
           pull(in)
         else runSubstream(key, elem)
@@ -334,8 +338,9 @@ import scala.collection.JavaConverters._
     override protected def onTimer(timerKey: Any): Unit = {
       val substreamSource = activeSubstreamsMap.get(timerKey)
       if (substreamSource != null) {
-        substreamSource.timeout(timeout)
-        closedSubstreams.add(timerKey)
+        if (!allowClosedSubstreamRecreation) {
+          closedSubstreams.add(timerKey)
+        }
         activeSubstreamsMap.remove(timerKey)
         if (isClosed(in)) tryCompleteAll()
       }
@@ -349,7 +354,9 @@ import scala.collection.JavaConverters._
       private def completeSubStream(): Unit = {
         complete()
         activeSubstreamsMap.remove(key)
-        closedSubstreams.add(key)
+        if (!allowClosedSubstreamRecreation) {
+          closedSubstreams.add(key)
+        }
       }
 
       private def tryCompleteHandler(): Unit = {

@@ -287,14 +287,14 @@ class GraphStageDocSpec extends AkkaSpec {
   "Demonstrate chaining of graph stages" in {
     val sink = Sink.fold[List[Int], Int](List.empty[Int])((acc, n) ⇒ acc :+ n)
 
-    //#graph-stage-chain
+    //#graph-operator-chain
     val resultFuture = Source(1 to 5)
       .via(new Filter(_ % 2 == 0))
       .via(new Duplicator())
       .via(new Map(_ / 2))
       .runWith(sink)
 
-    //#graph-stage-chain
+    //#graph-operator-chain
 
     Await.result(resultFuture, 3.seconds) should ===(List(1, 1, 2, 2))
   }
@@ -427,7 +427,7 @@ class GraphStageDocSpec extends AkkaSpec {
               promise.success(elem)
               push(out, elem)
 
-              // replace handler with one just forwarding
+              // replace handler with one that only forwards elements
               setHandler(in, new InHandler {
                 override def onPush(): Unit = {
                   push(out, grab(in))

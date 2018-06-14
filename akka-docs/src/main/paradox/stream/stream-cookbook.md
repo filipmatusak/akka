@@ -1,5 +1,15 @@
 # Streams Cookbook
 
+## Dependency
+
+To use Akka Streams, add the module to your project:
+
+@@dependency[sbt,Maven,Gradle] {
+  group="com.typesafe.akka"
+  artifact="akka-stream_$scala.binary_version$"
+  version="$akka.version$"
+}
+
 ## Introduction
 
 This is a collection of patterns to demonstrate various usage of the Akka Streams API by solving small targeted
@@ -11,7 +21,7 @@ This part also serves as supplementary material for the main body of documentati
 open while reading the manual and look for examples demonstrating various streaming concepts
 as they appear in the main body of documentation.
 
-If you need a quick reference of the available processing stages used in the recipes see @ref:[operator index](operators/index.md).
+If you need a quick reference of the available operators used in the recipes see @ref:[operator index](operators/index.md).
 
 ## Working with Flows
 
@@ -22,7 +32,7 @@ general, more targeted recipes are available as separate sections (@ref:[Buffers
 
 **Situation:** During development it is sometimes helpful to see what happens in a particular section of a stream.
 
-The simplest solution is to simply use a `map` operation and use `println` to print the elements received to the console.
+The simplest solution is to use a `map` operation and use `println` to print the elements received to the console.
 While this recipe is rather simplistic, it is often suitable for a quick debug session.
 
 Scala
@@ -63,7 +73,7 @@ all the nested elements inside the sequences separately.
 
 The `mapConcat` operation can be used to implement a one-to-many transformation of elements using a mapper function
 in the form of @scala[`In => immutable.Seq[Out]`] @java[`In -> List<Out>`]. In this case we want to map a @scala[`Seq`] @java[`List`] of elements to the elements in the
-collection itself, so we can just call @scala[`mapConcat(identity)`] @java[`mapConcat(l -> l)`].
+collection itself, so we can call @scala[`mapConcat(identity)`] @java[`mapConcat(l -> l)`].
 
 Scala
 :   @@snip [RecipeFlattenSeq.scala]($code$/scala/docs/stream/cookbook/RecipeFlattenSeq.scala) { #flattening-seqs }
@@ -101,15 +111,15 @@ Java
 **Situation:** A stream of bytes is given as a stream of `ByteString` s and we want to calculate the cryptographic digest
 of the stream.
 
-This recipe uses a `GraphStage` to host a mutable `MessageDigest` class (part of the Java Cryptography
+This recipe uses a @ref[`GraphStage`](stream-customize.md) to define a custom Akka Stream operator, to host a mutable `MessageDigest` class (part of the Java Cryptography
 API) and update it with the bytes arriving from the stream. When the stream starts, the `onPull` handler of the
-stage is called, which just bubbles up the `pull` event to its upstream. As a response to this pull, a ByteString
+operator is called, which bubbles up the `pull` event to its upstream. As a response to this pull, a ByteString
 chunk will arrive (`onPush`) which we use to update the digest, then it will pull for the next chunk.
 
 Eventually the stream of `ByteString` s depletes and we get a notification about this event via `onUpstreamFinish`.
 At this point we want to emit the digest value, but we cannot do it with `push` in this handler directly since there may
 be no downstream demand. Instead we call `emit` which will temporarily replace the handlers, emit the provided value when
-demand comes in and then reset the stage state. It will then complete the stage.
+demand comes in and then reset the operator state. It will then complete the operator.
 
 Scala
 :   @@snip [RecipeDigest.scala]($code$/scala/docs/stream/cookbook/RecipeDigest.scala) { #calculating-digest }
@@ -158,7 +168,7 @@ we have a stream of streams, where every substream will serve identical words.
 To count the words, we need to process the stream of streams (the actual groups
 containing identical words). `groupBy` returns a @scala[`SubFlow`] @java[`SubSource`], which
 means that we transform the resulting substreams directly. In this case we use
-the `reduce` combinator to aggregate the word itself and the number of its
+the `reduce` operator to aggregate the word itself and the number of its
 occurrences within a @scala[tuple `(String, Integer)`] @java[`Pair<String, Integer>`]. Each substream will then
 emit one final value—precisely such a pair—when the overall input completes. As
 a last step we merge back these values from the substreams into one single
@@ -246,8 +256,8 @@ In this collection we show recipes that use stream graph elements to achieve var
 In other words, even if the stream would be able to flow (not being backpressured) we want to hold back elements until a
 trigger signal arrives.
 
-This recipe solves the problem by simply zipping the stream of `Message` elements with the stream of `Trigger`
-signals. Since `Zip` produces pairs, we simply map the output stream selecting the first element of the pair.
+This recipe solves the problem by zipping the stream of `Message` elements with the stream of `Trigger`
+signals. Since `Zip` produces pairs, we map the output stream selecting the first element of the pair.
 
 Scala
 :   @@snip [RecipeManualTrigger.scala]($code$/scala/docs/stream/cookbook/RecipeManualTrigger.scala) { #manually-triggered-stream }
@@ -280,7 +290,7 @@ The graph consists of a `Balance` node which is a special fan-out operation that
 downstream consumers. In a `for` loop we wire all of our desired workers as outputs of this balancer element, then
 we wire the outputs of these workers to a `Merge` element that will collect the results from the workers.
 
-To make the worker stages run in parallel we mark them as asynchronous with *async*.
+To make the worker operators run in parallel we mark them as asynchronous with *async*.
 
 Scala
 :   @@snip [RecipeWorkerPool.scala]($code$/scala/docs/stream/cookbook/RecipeWorkerPool.scala) { #worker-pool }
@@ -303,7 +313,7 @@ This can be solved by using a versatile rate-transforming operation, `conflate`.
 a special `reduce` operation that collapses multiple upstream elements into one aggregate element if needed to keep
 the speed of the upstream unaffected by the downstream.
 
-When the upstream is faster, the reducing process of the `conflate` starts. Our reducer function simply takes
+When the upstream is faster, the reducing process of the `conflate` starts. Our reducer function takes
 the freshest element. This in a simple dropping operation.
 
 Scala
@@ -345,7 +355,7 @@ We will use `conflateWithSeed` to solve the problem. The seed version of conflat
 the downstream. In our case the seed function is a constant function that returns 0 since there were no missed ticks
 at that point.
  * A fold function that is invoked when multiple upstream messages needs to be collapsed to an aggregate value due
-to the insufficient processing rate of the downstream. Our folding function simply increments the currently stored
+to the insufficient processing rate of the downstream. Our folding function increments the currently stored
 count of the missed ticks so far.
 
 As a result, we have a flow of `Int` where the number represents the missed ticks. A number 0 means that we were
@@ -363,9 +373,9 @@ Java
 of them is slowing down the other by dropping earlier unconsumed elements from the upstream if necessary, and repeating
 the last value for the downstream if necessary.
 
-We have two options to implement this feature. In both cases we will use `GraphStage` to build our custom
-element. In the first version we will use a provided initial value `initial` that will be used
-to feed the downstream if no upstream element is ready yet. In the `onPush()` handler we just overwrite the
+We have two options to implement this feature. In both cases we will use @ref[`GraphStage`](stream-customize.md), to build our custom
+operator. In the first version we will use a provided initial value `initial` that will be used
+to feed the downstream if no upstream element is ready yet. In the `onPush()` handler we overwrite the
 `currentValue` variable and immediately relieve the upstream by calling `pull()`. The downstream `onPull` handler
 is very similar, we immediately relieve the downstream by emitting `currentValue`.
 
@@ -441,7 +451,7 @@ for this actor.
 the same sequence, but capping the size of `ByteString` s. In other words we want to slice up `ByteString` s into smaller
 chunks if they exceed a size threshold.
 
-This can be achieved with a single `GraphStage`. The main logic of our stage is in `emitChunk()`
+This can be achieved with a single @ref[`GraphStage`](stream-customize.md) to define a custom Akka Stream operator. The main logic of our operator is in `emitChunk()`
 which implements the following logic:
 
  * if the buffer is empty, and upstream is not closed we pull for more bytes, if it is closed we complete
@@ -463,8 +473,8 @@ Java
 **Situation:** Given a stream of `ByteString` s we want to fail the stream if more than a given maximum of bytes has been
 consumed.
 
-This recipe uses a `GraphStage` to implement the desired feature. In the only handler we override,
-`onPush()` we just update a counter and see if it gets larger than `maximumBytes`. If a violation happens
+This recipe uses a @ref[`GraphStage`](stream-customize.md) to implement the desired feature. In the only handler we override,
+`onPush()` we update a counter and see if it gets larger than `maximumBytes`. If a violation happens
 we signal failure, otherwise we forward the chunk we have received.
 
 Scala

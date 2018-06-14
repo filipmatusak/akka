@@ -63,7 +63,7 @@ Java
 :   @@snip [QuickStartDocTest.java]($code$/java/jdocs/stream/QuickStartDocTest.java) { #run-source }
 
 This line will complement the source with a consumer function—in this example
-we simply print out the numbers to the console—and pass this little stream
+we print out the numbers to the console—and pass this little stream
 setup to an Actor that runs it. This activation is signaled by having “run” be
 part of the method name; there are other methods that run Akka Streams, and
 they all follow this pattern.
@@ -92,11 +92,11 @@ There are other ways to create a materializer, e.g. from an
 `ActorContext` when using streams from within Actors. The
 `Materializer` is a factory for stream execution engines, it is the
 thing that makes streams run—you don’t need to worry about any of the details
-just now apart from that you need one for calling any of the `run` methods on
+right now apart from that you need one for calling any of the `run` methods on
 a `Source`. @scala[The materializer is picked up implicitly if it is omitted
 from the `run` method call arguments, which we will do in the following.]
 
-The nice thing about Akka Streams is that the `Source` is just a
+The nice thing about Akka Streams is that the `Source` is a
 description of what you want to run, and like an architect’s blueprint it can
 be reused, incorporated into a larger design. We may choose to transform the
 source of integers and write it to a file instead:
@@ -107,12 +107,12 @@ Scala
 Java
 :   @@snip [QuickStartDocTest.java]($code$/java/jdocs/stream/QuickStartDocTest.java) { #transform-source }
 
-First we use the `scan` combinator to run a computation over the whole
-stream: starting with the number 1 (@scala[`BigInt(1)`]@java[`BigInteger.ONE`]) we multiple by each of
+First we use the `scan` operator to run a computation over the whole
+stream: starting with the number 1 (@scala[`BigInt(1)`]@java[`BigInteger.ONE`]) we multiply by each of
 the incoming numbers, one after the other; the scan operation emits the initial
 value and then every calculation result. This yields the series of factorial
 numbers which we stash away as a `Source` for later reuse—it is
-important to keep in mind that nothing is actually computed yet, this is just a
+important to keep in mind that nothing is actually computed yet, this is a
 description of what we want to have computed once we run the stream. Then we
 convert the resulting series of numbers into a stream of `ByteString`
 objects describing lines in a text file. This stream is then run by attaching a
@@ -185,7 +185,7 @@ Java
 All operations so far have been time-independent and could have been performed
 in the same fashion on strict collections of elements. The next line
 demonstrates that we are in fact dealing with streams that can flow at a
-certain speed: we use the `throttle` combinator to slow down the stream to 1
+certain speed: we use the `throttle` operator to slow down the stream to 1
 element per second.
 
 If you run this program you will see one line printed per second. One aspect
@@ -195,14 +195,14 @@ JVM does not crash with an OutOfMemoryError, even though you will also notice
 that running the streams happens in the background, asynchronously (this is the
 reason for the auxiliary information to be provided as a @scala[`Future`]@java[`CompletionStage`], in the future). The
 secret that makes this work is that Akka Streams implicitly implement pervasive
-flow control, all combinators respect back-pressure. This allows the throttle
-combinator to signal to all its upstream sources of data that it can only
+flow control, all operators respect back-pressure. This allows the throttle
+operator to signal to all its upstream sources of data that it can only
 accept elements at a certain rate—when the incoming rate is higher than one per
-second the throttle combinator will assert *back-pressure* upstream.
+second the throttle operator will assert *back-pressure* upstream.
 
-This is basically all there is to Akka Streams in a nutshell—glossing over the
+This is all there is to Akka Streams in a nutshell—glossing over the
 fact that there are dozens of sources and sinks and many more stream
-transformation combinators to choose from, see also @ref:[operator index](operators/index.md).
+transformation operators to choose from, see also @ref:[operator index](operators/index.md).
 
 # Reactive Tweets
 
@@ -247,7 +247,7 @@ Java
 :   @@snip [TwitterStreamQuickstartDocTest.java]($code$/java/jdocs/stream/TwitterStreamQuickstartDocTest.java) { #materializer-setup }
 
 The `ActorMaterializer` can optionally take `ActorMaterializerSettings` which can be used to define
-materialization properties, such as default buffer sizes (see also @ref:[Buffers for asynchronous stages](stream-rate.md#async-stream-buffers)), the dispatcher to
+materialization properties, such as default buffer sizes (see also @ref:[Buffers for asynchronous operators](stream-rate.md#async-stream-buffers)), the dispatcher to
 be used by the pipeline etc. These can be overridden with `withAttributes` on `Flow`, `Source`, `Sink` and `Graph`.
 
 Let's assume we have a stream of tweets readily available. In Akka this is expressed as a @scala[`Source[Out, M]`]@java[`Source<Out, M>`]:
@@ -281,7 +281,7 @@ Finally in order to @ref:[materialize](stream-flows-and-basics.md#stream-materia
 the Flow to a @scala[`Sink`]@java[`Sink<T, M>`] that will get the Flow running. The simplest way to do this is to call
 `runWith(sink)` on a @scala[`Source`]@java[`Source<Out, M>`]. For convenience a number of common Sinks are predefined and collected as @java[static] methods on
 the @scala[`Sink` companion object]@java[`Sink class`].
-For now let's simply print each author:
+For now let's print each author:
 
 Scala
 :   @@snip [TwitterStreamQuickstartDocSpec.scala]($code$/scala/docs/stream/TwitterStreamQuickstartDocSpec.scala) { #authors-foreachsink-println }
@@ -313,7 +313,7 @@ Java
 In the previous section we were working on 1:1 relationships of elements which is the most common case, but sometimes
 we might want to map from one element to a number of elements and receive a "flattened" stream, similarly like `flatMap`
 works on Scala Collections. In order to get a flattened stream of hashtags from our stream of tweets we can use the `mapConcat`
-combinator:
+operator:
 
 Scala
 :   @@snip [TwitterStreamQuickstartDocSpec.scala]($code$/scala/docs/stream/TwitterStreamQuickstartDocSpec.scala) { #hashtags-mapConcat }
@@ -340,7 +340,7 @@ For example we'd like to write all author handles into one file, and all hashtag
 This means we have to split the source stream into two streams which will handle the writing to these different files.
 
 Elements that can be used to form such "fan-out" (or "fan-in") structures are referred to as "junctions" in Akka Streams.
-One of these that we'll be using in this example is called `Broadcast`, and it simply emits elements from its
+One of these that we'll be using in this example is called `Broadcast`, and it emits elements from its
 input port to all of its output ports.
 
 Akka Streams intentionally separate the linear stream structures (Flows) from the non-linear, branching ones (Graphs)
@@ -423,7 +423,7 @@ into an integer value `1`.  Finally we connect the Flow to the previously prepar
 Remember those mysterious `Mat` type parameters on @scala[`Source[+Out, +Mat]`, `Flow[-In, +Out, +Mat]` and `Sink[-In, +Mat]`]@java[`Source<Out, Mat>`, `Flow<In, Out, Mat>` and `Sink<In, Mat>`]?
 They represent the type of values these processing parts return when materialized. When you chain these together,
 you can explicitly combine their materialized values. In our example we used the @scala[`Keep.right`]@java[`Keep.right()`] predefined function,
-which tells the implementation to only care about the materialized type of the stage currently appended to the right.
+which tells the implementation to only care about the materialized type of the operator currently appended to the right.
 The materialized type of `sumSink` is @scala[`Future[Int]`]@java[`CompletionStage<Integer>`] and because of using @scala[`Keep.right`]@java[`Keep.right()`], the resulting `RunnableGraph`
 has also a type parameter of @scala[`Future[Int]`]@java[`CompletionStage<Integer>`].
 
@@ -435,7 +435,7 @@ In our case this type is @scala[`Future[Int]`]@java[`CompletionStage<Integer>`] 
 In case of the stream failing, this future would complete with a Failure.
 
 A `RunnableGraph` may be reused
-and materialized multiple times, because it is just the "blueprint" of the stream. This means that if we materialize a stream,
+and materialized multiple times, because it is only the "blueprint" of the stream. This means that if we materialize a stream,
 for example one that consumes a live stream of tweets within a minute, the materialized values for those two materializations
 will be different, as illustrated by this example:
 
@@ -457,7 +457,7 @@ Java
 
 @@@ note
 
-`runWith()` is a convenience method that automatically ignores the materialized value of any other stages except
+`runWith()` is a convenience method that automatically ignores the materialized value of any other operators except
 those appended by the `runWith()` itself. In the above example it translates to using @scala[`Keep.right`]@java[`Keep.right()`] as the combiner
 for materialized values.
 

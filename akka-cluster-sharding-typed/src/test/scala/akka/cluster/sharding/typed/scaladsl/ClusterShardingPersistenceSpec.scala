@@ -12,7 +12,7 @@ import akka.cluster.sharding.typed.ClusterShardingSettings
 import akka.cluster.typed.Cluster
 import akka.cluster.typed.Join
 import akka.persistence.typed.scaladsl.{ Effect, PersistentBehaviors }
-import akka.testkit.typed.scaladsl.{ ActorTestKit, TestProbe }
+import akka.actor.testkit.typed.scaladsl.{ ActorTestKit, TestProbe }
 import com.typesafe.config.ConfigFactory
 
 object ClusterShardingPersistenceSpec {
@@ -45,7 +45,7 @@ object ClusterShardingPersistenceSpec {
   def persistentActor(entityId: String): Behavior[Command] =
     PersistentBehaviors.receive[Command, String, String](
       entityId,
-      initialState = "",
+      emptyState = "",
       commandHandler = (_, state, cmd) ⇒ cmd match {
         case Add(s) ⇒ Effect.persist(s)
         case Get(replyTo) ⇒

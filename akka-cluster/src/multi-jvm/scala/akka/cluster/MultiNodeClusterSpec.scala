@@ -47,8 +47,11 @@ object MultiNodeClusterSpec {
       periodic-tasks-initial-delay        = 300 ms
       publish-stats-interval              = 0 s # always, when it happens
       failure-detector.heartbeat-interval = 500 ms
-
       run-coordinated-shutdown-when-down = off
+
+      sharding {
+        retry-interval = 200ms
+      }
     }
     akka.loglevel = INFO
     akka.log-dead-letters = off
@@ -76,7 +79,7 @@ object MultiNodeClusterSpec {
 
   class EndActor(testActor: ActorRef, target: Option[Address]) extends Actor {
     import EndActor._
-    def receive = {
+    def receive: Receive = {
       case SendEnd ⇒
         target foreach { t ⇒
           context.actorSelection(RootActorPath(t) / self.path.elements) ! End

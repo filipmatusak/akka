@@ -6,6 +6,7 @@ package jdocs.akka.persistence.typed;
 
 import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.ActorContext;
+import akka.actor.typed.javadsl.Behaviors;
 import akka.persistence.typed.javadsl.CommandHandler;
 import akka.persistence.typed.javadsl.Effect;
 import akka.persistence.typed.javadsl.EventHandler;
@@ -28,36 +29,53 @@ public class BasicPersistentBehaviorsTest {
     }
 
     @Override
-    public State initialState() {
+    public State emptyState() {
       return new State();
     }
 
     @Override
     public CommandHandler<Command, Event, State> commandHandler() {
-      return (ctx, state, command) -> Effect().none();
+      return (ctx, state, command) -> {
+        throw new RuntimeException("TODO: process the command & return an Effect");
+      };
     }
 
     @Override
     public EventHandler<Event, State> eventHandler() {
-      return (state, event) -> state;
+      return (state, event) -> {
+        throw new RuntimeException("TODO: process the event return the next state");
+      };
     }
 
     //#recovery
     @Override
     public void onRecoveryCompleted(ActorContext<Command> ctx, State state) {
-      // called once recovery is completed
+      throw new RuntimeException("TODO: add some end-of-recovery side-effect here");
     }
     //#recovery
 
     //#tagging
     @Override
     public Set<String> tagsFor(Event event) {
-      // inspect the event and decide if it should be tagged
-      return Collections.emptySet();
+      throw new RuntimeException("TODO: inspect the event and return any tags it should have");
     }
     //#tagging
   }
 
   static Behavior<Command> persistentBehavior = new MyPersistentBehavior("pid");
   //#structure
+
+  //#wrapPersistentBehavior
+  static Behavior<Command> debugAlwaysSnapshot = Behaviors.setup((context) -> {
+            return new MyPersistentBehavior("pid") {
+              @Override
+              public boolean shouldSnapshot(State state, Event event, long sequenceNr) {
+                context.getLog().info("Snapshot actor {} => state: {}",
+                        context.getSelf().path().name(), state);
+                return true;
+              }
+            };
+          }
+  );
+  //#wrapPersistentBehavior
 }

@@ -10,7 +10,7 @@ import akka.actor.typed.scaladsl.adapter.TypedActorSystemOps
 import akka.persistence.typed.scaladsl.PersistentBehaviors.CommandHandler
 import akka.persistence.typed.scaladsl.{ Effect, PersistentBehavior, PersistentBehaviors }
 import akka.testkit.TestLatch
-import akka.testkit.typed.scaladsl.{ ActorTestKit, TestProbe }
+import akka.actor.testkit.typed.scaladsl.{ ActorTestKit, TestProbe }
 import com.typesafe.config.{ Config, ConfigFactory }
 import org.scalatest.concurrent.Eventually
 
@@ -29,7 +29,7 @@ object ManyRecoveriesSpec {
     latch: Option[TestLatch]): PersistentBehavior[Cmd, Evt, String] =
     PersistentBehaviors.receive[Cmd, Evt, String](
       persistenceId = name,
-      initialState = "",
+      emptyState = "",
       commandHandler = CommandHandler.command {
         case Cmd(s) ⇒ Effect.persist(Evt(s)).andThen(_ ⇒ probe.ref ! s"$name-$s")
       },

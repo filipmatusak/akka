@@ -1,5 +1,15 @@
 # Integration
 
+## Dependency
+
+To use Akka Streams, add the module to your project:
+
+@@dependency[sbt,Maven,Gradle] {
+  group="com.typesafe.akka"
+  artifact="akka-stream_$scala.binary_version$"
+  version="$akka.version$"
+}
+
 ## Integrating with Actors
 
 For piping the elements of a stream as messages to an ordinary actor you can use 
@@ -10,10 +20,14 @@ materialized by `Source.actorRef`.
 
 ### ask
 
+@@@ note
+  See also: @ref[Flow.ask operator reference docs](operators/Source-or-Flow/ask.md), @ref[ActorFlow.ask operator reference docs](operators/ActorFlow/ask.md) for Akka Typed
+@@@
+
 A nice way to delegate some processing of elements in a stream to an actor is to use `ask`. 
 The back-pressure of the stream is maintained by the @scala[`Future`]@java[`CompletionStage`] of 
 the `ask` and the mailbox of the actor will not be filled with more messages than the given 
-`parallelism` of the `ask` stage (similarly to how the `mapAsync` stage works).
+`parallelism` of the `ask` operator (similarly to how the `mapAsync` operator works).
 
 Scala
 :   @@snip [IntegrationDocSpec.scala]($code$/scala/docs/stream/IntegrationDocSpec.scala) { #ask }
@@ -31,7 +45,7 @@ message.
 The actor must reply to the @scala[`sender()`]@java[`getSender()`] for each message from the stream. That
 reply will complete the  @scala[`Future`]@java[`CompletionStage`] of the `ask` and it will be the element that is emitted downstreams.
 
-In case the target actor is stopped, the stage will fail with an `AskStageTargetActorTerminatedException`
+In case the target actor is stopped, the operator will fail with an `AskStageTargetActorTerminatedException`
 
 Scala
 :   @@snip [IntegrationDocSpec.scala]($code$/scala/docs/stream/IntegrationDocSpec.scala) { #ask-actor }
@@ -43,19 +57,23 @@ The stream can be completed with failure by sending `akka.actor.Status.Failure` 
 
 If the `ask` fails due to timeout the stream will be completed with
 `TimeoutException` failure. If that is not desired outcome you can use `recover` 
-on the `ask` @scala[`Future`]@java[`CompletionStage`], or use the other "restart" stages to restart it.
+on the `ask` @scala[`Future`]@java[`CompletionStage`], or use the other "restart" operators to restart it.
 
 If you don't care about the reply values and only use them as back-pressure signals you 
-can use `Sink.ignore` after the `ask` stage and then actor is effectively a sink
+can use `Sink.ignore` after the `ask` operator and then actor is effectively a sink
 of the stream.
 
 Note that while you may implement the same concept using `mapAsync`, that style would not be aware of the actor terminating.
  
 If you are intending to ask multiple actors by using @ref:[Actor routers](../routing.md), then 
 you should use `mapAsyncUnordered` and perform the ask manually in there, as the ordering of the replies is not important,
-since multiple actors are being asked concurrently to begin with, and no single actor is the one to be watched by the stage.
+since multiple actors are being asked concurrently to begin with, and no single actor is the one to be watched by the operator.
 
 ### Sink.actorRefWithAck
+
+@@@ note
+  See also: @ref[Sink.actorRefWithAck operator reference docs](operators/Sink/actorRefWithAck.md)
+@@@
 
 The sink sends the elements of the stream to the given `ActorRef` that sends back back-pressure signal.
 First element is always *onInitMessage*, then stream is waiting for the given acknowledgement message
@@ -84,34 +102,49 @@ Note that replying to the sender of the elements (the "stream") is required as l
 as back-pressure (as intended), and no new elements will be sent into the actor until it acknowledges some elements.
 Handling the other signals while is not required, however is a good practice, to see the state of the streams lifecycle 
 in the connected actor as well. Technically it is also possible to use multiple sinks targeting the same actor,
-however it is not common practice to do so, and one should rather investigate using a `Merge` stage for this purpose.   
+however it is not common practice to do so, and one should rather investigate using a `Merge` operator for this purpose.   
 
 
 @@@ note
 
-Using `Sink.actorRef` or ordinary `tell` from a `map` or `foreach` stage means that there is
+Using `Sink.actorRef` or ordinary `tell` from a `map` or `foreach` operator means that there is
 no back-pressure signal from the destination actor, i.e. if the actor is not consuming the messages
 fast enough the mailbox of the actor will grow, unless you use a bounded mailbox with zero
-*mailbox-push-timeout-time* or use a rate limiting stage in front. It's often better to
+*mailbox-push-timeout-time* or use a rate limiting operator in front. It's often better to
 use `Sink.actorRefWithAck` or `ask` in `mapAsync`, though.
 
 @@@
 
 ### Source.queue
 
+`Source.queue` is an improvement over `Sink.actorRef`, since it can provide backpressure.
+The `offer` method returns a @scala[`Future`]@java[`CompletionStage`], which completes with the result of the enqueue operation.
+
 `Source.queue` can be used for emitting elements to a stream from an actor (or from anything running outside
 the stream). The elements will be buffered until the stream can process them. You can `offer` elements to 
 the queue and they will be emitted to the stream if there is demand from downstream, otherwise they will 
-be buffered until request for demand is received. 
+be buffered until request for demand is received.
 
 Use overflow strategy `akka.stream.OverflowStrategy.backpressure` to avoid dropping of elements if the 
 buffer is full, instead the returned @scala[`Future`]@java[`CompletionStage`] does not complete until there is space in the
 buffer and `offer` should not be called again until it completes.
 
+Using `Source.queue` you can push elements to the queue and they will be emitted to the stream if there is
+demand from downstream, otherwise they will be buffered until request for demand is received. Elements in the buffer
+will be discarded if downstream is terminated.
+
+You could combine it with the @ref[`throttle`](operators/Source-or-Flow/throttle.md) operator is used to slow down the stream to `5 element` per `3 seconds` and other patterns.
+
 `SourceQueue.offer` returns @scala[`Future[QueueOfferResult]`]@java[`CompletionStage<QueueOfferResult>`] which completes with `QueueOfferResult.Enqueued`
 if element was added to buffer or sent downstream. It completes with `QueueOfferResult.Dropped` if element 
 was dropped. Can also complete  with `QueueOfferResult.Failure` - when stream failed or 
 `QueueOfferResult.QueueClosed` when downstream is completed.
+
+Scala
+:   @@snip [IntegrationDocSpec.scala]($code$/scala/docs/stream/IntegrationDocSpec.scala) { #source-queue }
+
+Java
+:   @@snip [IntegrationDocTest.java]($code$/java/jdocs/stream/IntegrationDocTest.java) { #source-queue }
 
 When used from an actor you typically `pipe` the result of the @scala[`Future`]@java[`CompletionStage`] back to the actor to
 continue processing.
@@ -198,7 +231,7 @@ email addresses looked up.
 The final piece of this pipeline is to generate the demand that pulls the tweet
 authors information through the emailing pipeline: we attach a `Sink.ignore`
 which makes it all run. If our email process would return some interesting data
-for further transformation then we would of course not ignore it but send that
+for further transformation then we would not ignore it but send that
 result stream onwards for further processing or storage.
 
 Note that `mapAsync` preserves the order of the stream elements. In this example the order
@@ -490,7 +523,7 @@ Scala
 Java
 :   @@snip [ReactiveStreamsDocTest.java]($code$/java/jdocs/stream/ReactiveStreamsDocTest.java) { #source-fanoutPublisher }
 
-The input buffer size of the stage controls how far apart the slowest subscriber can be from the fastest subscriber
+The input buffer size of the operator controls how far apart the slowest subscriber can be from the fastest subscriber
 before slowing down the stream.
 
 To make the picture complete, it is also possible to expose a `Sink` as a `Subscriber`
@@ -517,7 +550,7 @@ Please note that a factory is necessary to achieve reusability of the resulting 
 
 As described above any Akka Streams `Source` can be exposed as a Reactive Streams `Publisher` and
 any `Sink` can be exposed as a Reactive Streams `Subscriber`. Therefore we recommend that you 
-implement Reactive Streams integrations with built-in stages or @ref:[custom stages](stream-customize.md).
+implement Reactive Streams integrations with built-in operators or @ref:[custom operators](stream-customize.md).
 
 For historical reasons the `ActorPublisher` and `ActorSubscriber` traits are
 provided to support implementing Reactive Streams `Publisher` and `Subscriber` with
@@ -538,11 +571,11 @@ the stream may deadlock.
 @@@ warning
 
 **Deprecation warning:** `ActorPublisher` is deprecated in favour of the vastly more
-type-safe and safe to implement `akka.stream.stage.GraphStage`. It can also
-expose a "stage actor ref" is needed to be addressed as-if an Actor.
-Custom stages implemented using `GraphStage` are also automatically fusable.
+type-safe and safe to implement @ref[`GraphStage`](stream-customize.md). It can also
+expose a "operator actor ref" is needed to be addressed as-if an Actor.
+Custom operators implemented using @ref[`GraphStage`](stream-customize.md) are also automatically fusable.
 
-To learn more about implementing custom stages using it refer to @ref:[Custom processing with GraphStage](stream-customize.md#graphstage).
+To learn more about implementing custom operators using it refer to @ref:[Custom processing with GraphStage](stream-customize.md#graphstage).
 
 @@@
 
@@ -604,11 +637,11 @@ Java
 @@@ warning
 
 **Deprecation warning:** `ActorSubscriber` is deprecated in favour of the vastly more
-type-safe and safe to implement `akka.stream.stage.GraphStage`. It can also
-expose a "stage actor ref" is needed to be addressed as-if an Actor.
-Custom stages implemented using `GraphStage` are also automatically fusable.
+type-safe and safe to implement @ref[`GraphStage`](stream-customize.md). It can also
+expose a "operator actor ref" is needed to be addressed as-if an Actor.
+Custom operators implemented using @ref[`GraphStage`](stream-customize.md) are also automatically fusable.
 
-To learn more about implementing custom stages using it refer to @ref:[Custom processing with GraphStage](stream-customize.md#graphstage).
+To learn more about implementing custom operators using it refer to @ref:[Custom processing with GraphStage](stream-customize.md#graphstage).
 
 @@@
 

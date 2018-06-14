@@ -18,10 +18,10 @@ object Dependencies {
   val sslConfigVersion = "0.2.3"
   val slf4jVersion = "1.7.25"
   val scalaXmlVersion = "1.0.6"
-  val aeronVersion = "1.7.0"
+  val aeronVersion = "1.9.1"
 
   val Versions = Seq(
-    crossScalaVersions := Seq("2.11.12", "2.12.5"),
+    crossScalaVersions := Seq("2.11.12", "2.12.6"),
     scalaVersion := System.getProperty("akka.build.scalaVersion", crossScalaVersions.value.head),
     scalaStmVersion := sys.props.get("akka.build.scalaStmVersion").getOrElse("0.8"),
     scalaCheckVersion := sys.props.get("akka.build.scalaCheckVersion").getOrElse(
@@ -32,7 +32,8 @@ object Dependencies {
     scalaTestVersion := "3.0.4",
     java8CompatVersion := {
       CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, n)) if n >= 12 ⇒ "0.8.0"
+        case Some((2, n)) if n >= 13 ⇒ "0.9.0"
+        case Some((2, n)) if n == 12 ⇒ "0.8.0"
         case _                       ⇒ "0.7.0"
       }
     })
@@ -57,6 +58,8 @@ object Dependencies {
     val osgiCompendium = "org.osgi" % "org.osgi.compendium" % "4.3.1" // ApacheV2
 
     val sigar = "org.fusesource" % "sigar" % "1.6.4" // ApacheV2
+
+    val jctools = "org.jctools" % "jctools-core" % "2.1.1" // ApacheV2
 
     // reactive streams
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % "1.0.2" // CC0
@@ -136,7 +139,7 @@ object Dependencies {
   val actorTests = l ++= Seq(Test.junit, Test.scalatest.value, Test.commonsCodec, Test.commonsMath,
     Test.mockito, Test.scalacheck.value, Test.jimfs)
 
-  val typedTestkit = l ++= Seq(Provided.junit)
+  val actorTestkitTyped = l ++= Seq(Provided.junit)
 
   val remote = l ++= Seq(netty, aeronDriver, aeronClient, Test.junit, Test.scalatest.value, Test.jimfs)
 
@@ -172,7 +175,7 @@ object Dependencies {
 
   val contrib = l ++= Seq(Test.commonsIo)
 
-  val benchJmh = l ++= Seq(Provided.levelDB, Provided.levelDBNative)
+  val benchJmh = l ++= Seq(Provided.levelDB, Provided.levelDBNative, Compile.jctools)
 
   // akka stream
 

@@ -7,6 +7,7 @@ package akka.remote
 import akka.remote.WireFormats._
 import akka.protobuf.ByteString
 import akka.actor.ExtendedActorSystem
+import akka.annotation.InternalApi
 import akka.remote.artery.{ EnvelopeBuffer, HeaderBuilder, OutboundEnvelope }
 import akka.serialization._
 
@@ -17,6 +18,7 @@ import scala.util.control.NonFatal
  *
  * MessageSerializer is a helper for serializing and deserialize messages
  */
+@InternalApi
 private[akka] object MessageSerializer {
 
   class SerializationException(msg: String, cause: Throwable) extends RuntimeException(msg, cause)
@@ -41,7 +43,12 @@ private[akka] object MessageSerializer {
     val s = SerializationExtension(system)
     val serializer = s.findSerializerFor(message)
     val builder = SerializedMessage.newBuilder
+
+    val oldInfo = Serialization.currentTransportInformation.value
     try {
+      if (oldInfo eq null)
+        Serialization.currentTransportInformation.value = system.provider.serializationInformation
+
       builder.setMessage(ByteString.copyFrom(serializer.toBinary(message)))
       builder.setSerializerId(serializer.identifier)
 
@@ -53,21 +60,27 @@ private[akka] object MessageSerializer {
       case NonFatal(e) ⇒
         throw new SerializationException(s"Failed to serialize remote message [${message.getClass}] " +
           s"using serializer [${serializer.getClass}].", e)
-    }
+    } finally Serialization.currentTransportInformation.value = oldInfo
   }
 
   def serializeForArtery(serialization: Serialization, outboundEnvelope: OutboundEnvelope, headerBuilder: HeaderBuilder, envelope: EnvelopeBuffer): Unit = {
     val message = outboundEnvelope.message
     val serializer = serialization.findSerializerFor(message)
+    val oldInfo = Serialization.currentTransportInformation.value
+    try {
+      if (oldInfo eq null)
+        Serialization.currentTransportInformation.value = serialization.serializationInformation
 
-    headerBuilder setSerializer serializer.identifier
-    headerBuilder setManifest Serializers.manifestFor(serializer, message)
-    envelope.writeHeader(headerBuilder, outboundEnvelope)
+      headerBuilder.setSerializer(serializer.identifier)
+      headerBuilder.setManifest(Serializers.manifestFor(serializer, message))
+      envelope.writeHeader(headerBuilder, outboundEnvelope)
 
-    serializer match {
-      case ser: ByteBufferSerializer ⇒ ser.toBinary(message, envelope.byteBuffer)
-      case _                         ⇒ envelope.byteBuffer.put(serializer.toBinary(message))
-    }
+      serializer match {
+        case ser: ByteBufferSerializer ⇒ ser.toBinary(message, envelope.byteBuffer)
+        case _                         ⇒ envelope.byteBuffer.put(serializer.toBinary(message))
+      }
+
+    } finally Serialization.currentTransportInformation.value = oldInfo
   }
 
   def deserializeForArtery(system: ExtendedActorSystem, originUid: Long, serialization: Serialization,

@@ -6,6 +6,7 @@ package akka.stream.impl
 
 import akka.Done
 import akka.annotation.InternalApi
+import akka.dispatch.ExecutionContexts.sameThreadExecutionContext
 import akka.stream.ActorAttributes.SupervisionStrategy
 import akka.stream._
 import akka.stream.impl.Stages.DefaultAttributes
@@ -28,7 +29,7 @@ import scala.util.control.NonFatal
 
   def createLogic(inheritedAttributes: Attributes) = new GraphStageLogic(shape) with OutHandler {
     lazy val decider = inheritedAttributes.mandatoryAttribute[SupervisionStrategy].decider
-    private implicit def ec = ActorMaterializerHelper.downcast(materializer).system.dispatcher
+    private implicit def ec = materializer.executionContext
     private var state: Option[S] = None
 
     private val createdCallback = getAsyncCallback[Try[S]] {
@@ -74,7 +75,7 @@ import scala.util.control.NonFatal
       state match {
         case Some(resource) ⇒
           try {
-            readData(resource).onComplete(readCallback)
+            readData(resource).onComplete(readCallback)(sameThreadExecutionContext)
           } catch errorHandler
         case None ⇒
         // we got a pull but there is no open resource, we are either

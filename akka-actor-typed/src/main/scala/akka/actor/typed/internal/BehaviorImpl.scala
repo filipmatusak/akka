@@ -132,8 +132,10 @@ import scala.reflect.ClassTag
           Intercept(beforeMessage, beforeSignal, afterMessage, afterSignal, b, toStringPrefix)
         }
       case _ ⇒
-        Intercept(beforeMessage, beforeSignal, afterMessage, afterSignal, behavior, toStringPrefix)
+        val b = Behavior.validateAsInitial(behavior)
+        Intercept(beforeMessage, beforeSignal, afterMessage, afterSignal, b, toStringPrefix)
     }
+
   }
 
   private final case class Intercept[T, U <: Any: ClassTag](
@@ -174,6 +176,22 @@ import scala.reflect.ClassTag
     }
 
     override def toString = s"$toStringPrefix(${LineNumbers(beforeOnMessage)},${LineNumbers(beforeOnSignal)},$behavior)"
+  }
+
+  class OrElseBehavior[T](first: Behavior[T], second: Behavior[T]) extends ExtensibleBehavior[T] {
+    override def receive(ctx: AC[T], msg: T): Behavior[T] = {
+      Behavior.interpretMessage(first, ctx, msg) match {
+        case _: UnhandledBehavior.type ⇒ Behavior.interpretMessage(second, ctx, msg)
+        case handled                   ⇒ handled
+      }
+    }
+
+    override def receiveSignal(ctx: AC[T], msg: Signal): Behavior[T] = {
+      Behavior.interpretSignal(first, ctx, msg) match {
+        case _: UnhandledBehavior.type ⇒ Behavior.interpretSignal(second, ctx, msg)
+        case handled                   ⇒ handled
+      }
+    }
   }
 
 }

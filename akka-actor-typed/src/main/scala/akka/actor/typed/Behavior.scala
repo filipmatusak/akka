@@ -6,8 +6,9 @@ package akka.actor.typed
 
 import akka.actor.InvalidMessageException
 import akka.actor.typed.internal.BehaviorImpl
-
 import scala.annotation.tailrec
+
+import akka.actor.typed.internal.BehaviorImpl.OrElseBehavior
 import akka.util.{ LineNumbers, OptionVal }
 import akka.annotation.{ DoNotInherit, InternalApi }
 import akka.actor.typed.scaladsl.{ ActorContext ⇒ SAC }
@@ -41,6 +42,15 @@ sealed abstract class Behavior[T] { behavior ⇒
    * (which cannot be expressed directly due to type inference problems).
    */
   final def narrow[U <: T]: Behavior[U] = this.asInstanceOf[Behavior[U]]
+
+  /**
+   * Composes this `Behavior with a fallback `Behavior` which
+   * is used when this `Behavior` doesn't handle the message or signal, i.e.
+   * when `unhandled` is returned.
+   *
+   *  @param that the fallback `Behavior`
+   */
+  final def orElse(that: Behavior[T]): Behavior[T] = new OrElseBehavior[T](this, that)
 }
 
 /**
@@ -180,16 +190,6 @@ object Behavior {
 
   /**
    * INTERNAL API
-   * Used to create untyped props from behaviours, or directly returning an untyped props that implements this behavior.
-   */
-  @InternalApi
-  private[akka] abstract class UntypedPropsBehavior[T] extends Behavior[T] {
-    /** INTERNAL API */
-    @InternalApi private[akka] def untypedProps(props: Props): akka.actor.Props
-  }
-
-  /**
-   * INTERNAL API
    */
   @InternalApi private[akka] val unhandledSignal: PartialFunction[(ActorContext[Nothing], Signal), Behavior[Nothing]] = {
     case (_, _) ⇒ UnhandledBehavior
@@ -261,7 +261,7 @@ object Behavior {
     nextBehavior match {
       case SameBehavior | `currentBehavior` ⇒ same
       case UnhandledBehavior                ⇒ unhandled
-      case StoppedBehavior                  ⇒ stopped
+      case stopped: StoppedBehavior[T]      ⇒ stopped.asInstanceOf[Behavior[U]] // won't receive more messages so cast is safe
       case deferred: DeferredBehavior[T]    ⇒ wrap(currentBehavior, start(deferred, ctx), ctx)(f)
       case other                            ⇒ f(other)
     }
@@ -328,9 +328,6 @@ object Behavior {
       case null ⇒ throw new InvalidMessageException("[null] is not an allowed behavior")
       case SameBehavior | UnhandledBehavior ⇒
         throw new IllegalArgumentException(s"cannot execute with [$behavior] as behavior")
-      case _: UntypedPropsBehavior[_] ⇒
-        throw new IllegalArgumentException(s"cannot wrap behavior [$behavior] in " +
-          "Behaviors.setup, Behaviors.supervise or similar")
       case d: DeferredBehavior[_] ⇒ throw new IllegalArgumentException(s"deferred [$d] should not be passed to interpreter")
       case IgnoreBehavior         ⇒ SameBehavior.asInstanceOf[Behavior[T]]
       case s: StoppedBehavior[T]  ⇒ s
